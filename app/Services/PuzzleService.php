@@ -45,4 +45,29 @@ class PuzzleService
             'remaining_letters' => array_values($availableLetters),
         ]);
     }
+
+
+        public function validateWord(string $puzzle, string $submittedWord): bool
+        {
+            $availableLetters = str_split(strtolower($puzzle));
+            $submittedLetters = str_split(strtolower($submittedWord));
+
+            // Check letter usage
+            foreach ($submittedLetters as $letter) {
+                $key = array_search($letter, $availableLetters);
+                if ($key === false) {
+                    throw new UsedLettersExceededException("Used letter not in puzzle or overused.");
+                }
+                unset($availableLetters[$key]);
+            }
+
+            // Check dictionary (simple file-based check)
+            $dictionary = file(storage_path('words.txt'), FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            if (!in_array(strtolower($submittedWord), $dictionary)) {
+                throw new InvalidWordException("Submitted word not in dictionary.");
+            }
+
+            return true;
+        }
+
 }
