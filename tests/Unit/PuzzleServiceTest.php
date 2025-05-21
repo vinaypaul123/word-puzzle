@@ -3,12 +3,19 @@
 namespace Tests\Unit;
 
 use Tests\TestCase;
+use App\Models\Puzzle;
+use App\Models\Student;
+use App\Models\Word;
 use App\Services\PuzzleService;
-use App\Exceptions\UsedLettersExceededException;
+use App\DTOs\SubmissionDTO;
 use App\Exceptions\InvalidWordException;
+use App\Exceptions\UsedLettersExceededException;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class PuzzleServiceTest extends TestCase
 {
+    use RefreshDatabase;
+
     protected PuzzleService $puzzleService;
 
     protected function setUp(): void
@@ -20,23 +27,20 @@ class PuzzleServiceTest extends TestCase
     /** @test */
     public function it_accepts_valid_word_within_puzzle_letters()
     {
-        $puzzle = 'applegrape'; // letters available
-        $submittedWord = 'apple';
+        $puzzle = Puzzle::create(['puzzle' => 'applegrape']);
+        $student = Student::create(['name' => 'John Doe']);
+        Word::create(['word' => 'apple']); // Make sure this exists in dictionary
 
-        $result = $this->puzzleService->validateWord($puzzle, $submittedWord);
+        $dto = new SubmissionDTO(
+            word: 'apple',
+            student_id: $student->id,
+            puzzle_id: $puzzle->id
+        );
 
-        $this->assertTrue($result);
-    }
+        $submission = $this->puzzleService->validateAndScore($dto);
 
-    /** @test */
-    public function it_throws_exception_when_word_uses_letters_not_in_puzzle()
-    {
-        $this->expectException(UsedLettersExceededException::class);
-
-        $puzzle = 'bananaorange';
-        $submittedWord = 'kiwi';  // 'k' and 'w' not in puzzle
-
-        $this->puzzleService->validateWord($puzzle, $submittedWord);
+        $this->assertEquals('apple', $submission->word);
+        $this->assertEquals(5, $submission->score);
     }
 
     /** @test */
@@ -44,13 +48,33 @@ class PuzzleServiceTest extends TestCase
     {
         $this->expectException(InvalidWordException::class);
 
-        $puzzle = 'applegrape';
-        $submittedWord = 'xyzzy';  // not a valid dictionary word
+        $puzzle = Puzzle::create(['puzzle' => 'applegrape']);
+        $student = Student::create(['name' => 'Jane Doe']);
 
-        $this->puzzleService->validateWord($puzzle, $submittedWord);
+        $dto = new SubmissionDTO(
+            word: 'xyzzy',
+            student_id: $student->id,
+            puzzle_id: $puzzle->id
+        );
+
+        $this->puzzleService->validateAndScore($dto);
     }
 
+    /** @test */
+    public function it_throws_exception_when_word_uses_invalid_letters()
+    {
+        $this->expectException(UsedLettersExceededException::class);
 
+        $puzzle = Puzzle::create(['puzzle' => 'bananaorange']);
+        $student = Student::create(['name' => 'Alice']);
+        Word::create(['word' => 'kiwi']); // Valid dictionary word
 
+        $dto = new SubmissionDTO(
+            word: 'kiwi',
+            student_id: $student->id,
+            puzzle_id: $puzzle->id
+        );
+
+        $this->puzzleService->validateAndScore($dto);
+    }
 }
-
