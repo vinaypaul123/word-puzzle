@@ -3,19 +3,10 @@
 namespace Tests\Unit;
 
 use Tests\TestCase;
-use App\Models\Puzzle;
-use App\Models\Student;
-use App\Models\Word;
 use App\Services\PuzzleService;
-use App\DTOs\SubmissionDTO;
-use App\Exceptions\InvalidWordException;
-use App\Exceptions\UsedLettersExceededException;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class PuzzleServiceTest extends TestCase
 {
-    use RefreshDatabase;
-
     protected PuzzleService $puzzleService;
 
     protected function setUp(): void
@@ -25,56 +16,81 @@ class PuzzleServiceTest extends TestCase
     }
 
     /** @test */
-    public function it_accepts_valid_word_within_puzzle_letters()
+    public function it_validates_a_word_that_exists_in_puzzle_and_wordlist()
     {
-        $puzzle = Puzzle::create(['puzzle' => 'applegrape']);
-        $student = Student::create(['name' => 'John Doe']);
-        Word::create(['word' => 'apple']); // Make sure this exists in dictionary
+        // Arrange
+        $puzzle = 'dgeftoikbvxuaa';
+        $validWord = 'exit'; // This must exist in your words.txt for test to pass
 
-        $dto = new SubmissionDTO(
-            word: 'apple',
-            student_id: $student->id,
-            puzzle_id: $puzzle->id
-        );
+        // Act
+        $result = $this->puzzleService->validateWordWithPuzzle($puzzle, $validWord);
 
-        $submission = $this->puzzleService->validateAndScore($dto);
-
-        $this->assertEquals('apple', $submission->word);
-        $this->assertEquals(5, $submission->score);
+        // Assert
+        $this->assertEquals($validWord, $result);
     }
 
     /** @test */
-    public function it_throws_exception_for_invalid_word_not_in_dictionary()
+    public function it_throws_exception_if_word_not_in_wordlist()
     {
-        $this->expectException(InvalidWordException::class);
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Word not found in the Puzzle.');
 
-        $puzzle = Puzzle::create(['puzzle' => 'applegrape']);
-        $student = Student::create(['name' => 'Jane Doe']);
+        $puzzle = 'dgeftoikbvxuaa';
+        $invalidWord = 'invalidwordxyz';
 
-        $dto = new SubmissionDTO(
-            word: 'xyzzy',
-            student_id: $student->id,
-            puzzle_id: $puzzle->id
-        );
-
-        $this->puzzleService->validateAndScore($dto);
+        $this->puzzleService->validateWordWithPuzzle($puzzle, $invalidWord);
     }
 
     /** @test */
-    public function it_throws_exception_when_word_uses_invalid_letters()
+    public function it_throws_exception_if_word_uses_letters_not_in_puzzle()
     {
-        $this->expectException(UsedLettersExceededException::class);
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage('Word uses letters not available in the puzzle.');
 
-        $puzzle = Puzzle::create(['puzzle' => 'bananaorange']);
-        $student = Student::create(['name' => 'Alice']);
-        Word::create(['word' => 'kiwi']); // Valid dictionary word
+        $puzzle = 'dgeftoikbvxuaa';
+        $invalidWord = '//';
 
-        $dto = new SubmissionDTO(
-            word: 'kiwi',
-            student_id: $student->id,
-            puzzle_id: $puzzle->id
-        );
+        $this->puzzleService->validateWordWithPuzzle($puzzle, $invalidWord);
+    }
 
-        $this->puzzleService->validateAndScore($dto);
+    /** @test */
+    // public function it_checks_if_word_is_valid_english_word()
+    // {
+    //     // Arrange
+    //     $validWord = 'exit';  // must be in words.txt
+    //     $invalidWord = 'qwertyuiopasdfghjklzxcvbnm';
+
+    //     // Assert valid word returns true
+    //     $this->assertTrue($this->puzzleService->isValidEnglishWord($validWord));
+    //     // Assert invalid word returns false
+    //     $this->assertFalse($this->puzzleService->isValidEnglishWord($invalidWord));
+    // }
+
+    /** @test */
+    public function it_calculates_remaining_letters_after_word_is_used()
+    {
+        $puzzle = 'dgeftoikbvxuaa';
+        $word = 'exit';
+
+        $remainingLetters = $this->puzzleService->calculateRemainingLetters($puzzle, $word);
+
+        // The puzzle letters minus letters in 'date'
+        // 'dgeftoikbvxuaa' minus d,a,t,e
+        // Let's just check that the count is reduced by 4
+        $this->assertCount(strlen($puzzle) - strlen($word), $remainingLetters);
+
+        // And the remaining letters array should not contain the letters of the word
+        foreach (str_split($word) as $char) {
+            $this->assertNotContains($char, $remainingLetters);
+        }
+    }
+
+    /** @test */
+    public function it_calculates_score_based_on_word_length()
+    {
+        $word = 'exit';
+        $score = $this->puzzleService->calculateScore($word);
+
+        $this->assertEquals(strlen($word), $score);
     }
 }

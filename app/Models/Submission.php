@@ -9,6 +9,8 @@ class Submission extends Model
 {
   use HasFactory;
 
+    protected $guarded=['id'];
+
     protected $fillable = [
         'student_id',
         'puzzle_id',

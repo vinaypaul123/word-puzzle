@@ -1,10 +1,10 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Word Puzzle</title>
-</head>
-<body>
+@extends('layout')
+
+@section('content')
+
     <h1>Welcome to Word Puzzle Game</h1>
-    <a href="{{ route('puzzle.start') }}">Start Puzzle</a>
-</body>
-</html>
+    <button class="btn btn-primary mb-2"><a style="color:#fff;text-decoration:none" href="{{ route('puzzle.name') }}">Start Puzzle</a></button><br>
+     <button class="btn btn-primary"><a style="color:#fff;text-decoration:none" href="{{ route('leaderboard') }}">Leader Board </button></a>
+@extends('layout')
+
+@section('content')

@@ -2,49 +2,80 @@
 
 namespace App\Services;
 
-use App\Models\Puzzle;
-use App\Models\Submission;
-use App\Models\Student;
-use App\Models\Word;
-use App\DTOs\SubmissionDTO;
-use App\Exceptions\InvalidWordException;
-use App\Exceptions\UsedLettersExceededException;
-
 class PuzzleService
 {
-    public function validateAndScore(SubmissionDTO $dto): Submission
-    {
-        $puzzle = Puzzle::findOrFail($dto->puzzle_id);
-       // $student = Student::findOrFail($dto->student_id);
 
-        $submittedWord = strtolower($dto->word);
+    // public function generatePuzzle(): string
+    //     {
+    //         $wordList = file(storage_path('words.txt'), FILE_IGNORE_NEW_LINES);
 
-        // Check if the submitted word exists in the 'words' table
-        if (!Word::where('word', $submittedWord)->exists()) {
-            throw new InvalidWordException("Word not found in dictionary.");
-        }
+    //         foreach ($wordList as $baseWord) {
+    //                 $baseWord = strtolower(trim($baseWord));
 
-        $availableLetters = str_split(strtolower($puzzle->puzzle));
-        $submittedLetters = str_split($submittedWord);
+    //                 $alreadySubmitted = Submission::where('word', $baseWord)->exists();
 
-        foreach ($submittedLetters as $letter) {
-            $key = array_search($letter, $availableLetters);
-            if ($key === false) {
-                throw new UsedLettersExceededException("Used letter not in puzzle or overused.");
+    //                 if (!$alreadySubmitted) {
+    //                     $extraLetters = str_shuffle('abcdefghijklmnopqrstuvwxyz');
+    //                     $combined = str_split($baseWord . substr($extraLetters, 0, 7));
+    //                     shuffle($combined);
+    //                     return implode('', $combined);
+    //                 }
+    //             }
+
+    //             throw new \Exception("No unused base word available.");
+    // }
+        public function validateWordWithPuzzle(string $puzzle, string $word)
+        {
+
+            $wordList = file(storage_path('words.txt'), FILE_IGNORE_NEW_LINES);
+
+            $word = strtolower(trim($word));
+
+            // Check if the word exists in the word list
+            if (!in_array($word, $wordList)) {
+                throw new \Exception('Word not found in the Puzzle.');
             }
-            unset($availableLetters[$key]);
+            // Convert letters to frequency map
+            $puzzleLetters = count_chars($puzzle, 1);
+            $wordLetters = count_chars($word, 1);
+
+            // Ensure each letter in word exists in puzzle and not used more than allowed
+            foreach ($wordLetters as $ascii => $count) {
+                if (!isset($puzzleLetters[$ascii]) || $count > $puzzleLetters[$ascii]) {
+                    throw new \Exception('Word uses letters not available in the puzzle.');
+                }
+            }
+            return $word;
         }
 
-        $score = strlen($submittedWord); // Simple scoring based on length
 
-        return Submission::create([
-            'student_id' => $dto->student_id,
-            'puzzle_id' => $dto->puzzle_id,
-            'word' => $submittedWord,
-            'score' => $score,
-            'remaining_letters' => array_values($availableLetters),
-        ]);
+    // public function isValidEnglishWord(string $word): bool
+    // {
+    //     static $dictionary = null;
+
+    //     if ($dictionary === null) {
+    //             $dictionary = file(storage_path('words.txt'), FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    //             $dictionary = array_map('strtolower', $dictionary);
+    //     }
+
+    //     return in_array(strtolower($word), $dictionary);
+    // }
+
+    public function calculateRemainingLetters(string $puzzle, string $word): array
+    {
+        $letters = str_split($puzzle);
+        foreach (str_split($word) as $char) {
+            $index = array_search($char, $letters);
+            if ($index !== false) {
+                unset($letters[$index]);
+            }
+        }
+        return array_values($letters);
     }
 
-
+    public function calculateScore(string $word): int
+    {
+        return strlen($word); // Customize as needed
+    }
 }
+

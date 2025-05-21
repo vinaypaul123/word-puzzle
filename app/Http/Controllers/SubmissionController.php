@@ -3,48 +3,64 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\DTOs\SubmissionDTO;
+use App\Repositories\SubmissionRepository;
+use App\Services\PuzzleService;
 use App\Models\Submission;
 use App\Models\Student;
-use App\Models\Puzzle;
-use App\DTOs\SubmissionDTO;
-use App\Services\PuzzleService;
-use App\Exceptions\InvalidWordException;
-use App\Exceptions\UsedLettersExceededException;
+use App\Http\Requests\StoreSubmissionRequest;
 
 class SubmissionController extends Controller
 {
-    public function submit(Request $request, PuzzleService $puzzleService)
-    {
-        $request->validate([
-            'word' => 'required|string',
-            'student_id' => 'required|integer|exists:students,id',
-            'puzzle_id' => 'required|integer|exists:puzzles,id',
-        ]);
 
+    public function submit(StoreSubmissionRequest $request, SubmissionRepository $repo, PuzzleService $service)
+    {
         $dto = new SubmissionDTO(
-            word: strtolower($request->word),
-            student_id: $request->student_id,
-            puzzle_id: $request->puzzle_id,
+            $request->word,
+            $request->student_id,
+            $request->puzzle_id
         );
 
         try {
-            $submission = $puzzleService->validateAndScore($dto);
+            $puzzle = \App\Models\Puzzle::findOrFail($dto->puzzle_id);
 
-            return back()->with('success', "Word '{$submission->word}' submitted for {$submission->score} points.");
-        } catch (InvalidWordException|UsedLettersExceededException $e) {
-            return back()->with('error', $e->getMessage());
+            // Check if the word has already been submitted
+            $alreadySubmitted = Submission::where('student_id', $dto->student_id)
+            ->where('puzzle_id', $dto->puzzle_id)
+            ->where('word', $dto->word)
+            ->exists();
+
+            if ($alreadySubmitted) {
+                return back()->with('error',  'You have already submitted this word. Try another one.');
+            }
+
+            try {
+                $service->validateWordWithPuzzle($puzzle->puzzle, $dto->word);
+            } catch (\Exception $e) {
+                return back()->with('error', $e->getMessage());
+            }
+            $remaining = $service->calculateRemainingLetters($puzzle->puzzle, $dto->word);
+            $score = $service->calculateScore($dto->word);
+
+            $submission = $repo->create($dto, $score, $remaining);
+
+            return redirect()->route('puzzle.start')->with('success', 'Word submitted successfully!');
+        } catch (\Exception $e) {
+            return back()->withErrors($e->getMessage());
         }
     }
 
-    public function leaderboard()
+    public function endgame(Request $request)
     {
-        $topSubmissions = Submission::query()
-            ->select('word', 'score')
-            ->distinct('word')
-            ->orderByDesc('score')
-            ->limit(10)
-            ->get();
+        session()->forget('puzzle_id');
+        session()->forget('student_id');
+        return redirect()->route('leaderboard');
+    }
 
-        return view('leaderboard', ['leaderboard' => $topSubmissions]);
+    public function leaderboard(SubmissionRepository $repo)
+    {
+        $leaderboard = $repo->getLeaderboard();
+        return view('leaderboard', compact('leaderboard'));
     }
 }
+

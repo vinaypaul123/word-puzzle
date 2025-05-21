@@ -2,67 +2,54 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\Puzzle;
-use App\Models\Word;
+use Illuminate\Support\Str;
 use App\Models\Student;
+use App\Repositories\PuzzleRepository;
+use Illuminate\Http\Request;
+use App\Services\PuzzleService;
+use App\Http\Requests\StoreStudentRequest;
 
 class PuzzleController extends Controller
 {
+    public function __construct(private PuzzleService $puzzleService) {}
 
- public function start(Request $request)
+    public function start(PuzzleRepository $repo)
     {
-        $student = Student::create([
-            'name' => $request->query('name', 'Anonymous')
-        ]);
+        $studentId = session('student_id');
+        $student = Student::findOrFail($studentId);
 
-        $dictionary = [
-            'apple', 'banana', 'orange', 'grape', 'melon',
-            'pear', 'peach', 'plum', 'kiwi', 'mango'
-        ];
+        $studentId = session('puzzle_id');
+        $puzzle = $repo->find($studentId);
 
-        $randomWord = $dictionary[array_rand($dictionary)];
+        return view('puzzle', compact('puzzle', 'student'));
 
-        // Add 5 random extra letters to increase difficulty
-        $extra = str_split('abcdefghijklmnopqrstuvwxyz');
-        shuffle($extra);
-
-        $puzzleLetters = array_merge(str_split($randomWord), array_slice($extra, 0, 5));
-        shuffle($puzzleLetters);
-
-        $shuffledPuzzle = implode('', $puzzleLetters);
-
-        // Save the puzzle
-        $puzzle = Puzzle::create([
-            'puzzle' => $shuffledPuzzle
-        ]);
-
-        // Check which words from our dictionary can be made from the puzzle
-        foreach ($dictionary as $word) {
-            if ($this->canFormWord($word, $shuffledPuzzle)) {
-                Word::firstOrCreate(['word' => $word]);
-            }
-        }
-        return view('puzzle', [
-                    'puzzle' => $puzzle,
-                    'student' => $student
-        ]);
-        //echo "Generated puzzle: $shuffledPuzzle (base word: $randomWord)\n";
     }
 
-    private function canFormWord(string $word, string $puzzle): bool
-    {
-        $available = str_split($puzzle);
+    public function submitname(StoreStudentRequest $request,PuzzleRepository $repo){
 
-        foreach (str_split($word) as $letter) {
-            $index = array_search($letter, $available);
-            if ($index === false) {
-                return false;
+            $student = Student::firstOrCreate(['name' => $request->name]); // Temp student
+            session(['student_id' => $student->id]);
+
+            $puzzlestring='dgeftoikbvxuaa';
+
+            // Check if puzzle already exists
+            $puzzle = \App\Models\Puzzle::where('puzzle', $puzzlestring)->first();
+
+            if (!$puzzle) {
+                // Not found, create new puzzle
+                $puzzle = $repo->create($puzzlestring);
             }
-            unset($available[$index]);
-        }
 
-        return true;
+            session(['puzzle_id' => $puzzle->id]);
+
+            return redirect()->route('puzzle.start');
+
     }
+
+    public function startname(Request $request){
+        return view('student_name');
+    }
+
 
 }
+
