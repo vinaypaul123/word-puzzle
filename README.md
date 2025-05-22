@@ -6,9 +6,9 @@ This is a Laravel 10-based backend application for a Word Puzzle game. It allows
 
 ## 📦 Features
 
-- Randomly generates shuffled letter puzzles
+- generates shuffled letter puzzles
 - Accepts valid English words (dictionary-based)
-- Scores words based on remaining letters
+- Scores words
 - Tracks each student’s submissions
 - Displays a leaderboard of top scores
 
@@ -22,3 +22,9 @@ cd word-puzzle-backend
 composer install
 cp .env.example .env
 php artisan key:generate
+
+## Requirements
+1) PHP 8.1
+2) Laravel 10.48.29
+3) MySQL
+4) Composer
