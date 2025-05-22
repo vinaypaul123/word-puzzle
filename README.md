@@ -1,4 +1,4 @@
-# Word Puzzle Backend 🧩
+# Word Puzzle 🧩
 
 This is a Laravel 10-based backend application for a Word Puzzle game. It allows students to receive randomized puzzles, submit valid words from those puzzles, and track scores.
 
